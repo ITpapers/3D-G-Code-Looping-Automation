@@ -1,0 +1,1 @@
+{"name":"bambu-loop-pro","version":"0.1.0","private":true,"type":"module","scripts":{"dev":"vite","build":"vite build","preview":"vite preview","typecheck":"tsc --noEmit","test":"vitest"},"devDependencies":{"@types/node":"^24.5.2","@vitest/mocker":"^3.2.4","typescript":"^5.5.4","vite":"^7.1.6","vitest":"^3.2.4","zod":"^3.23.8"}}

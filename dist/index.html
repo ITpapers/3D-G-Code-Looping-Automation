@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bambu Loop Pro — TypeScript</title>
+  <!-- public/assets/... is served at /assets/... -->
+  <link rel="stylesheet" href="/assets/styles.css" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png">
+  <link rel="manifest" href="assets/favicon/site.webmanifest">
+  <script type="module" crossorigin src="/assets/index-BF4_hhuV.js"></script>
+</head>
+<body>
+  <div class="card">
+    <h1>Bambu Loop Pro — TypeScript</h1>
+    <p class="muted">Local-only tool. Upload Bambu <strong>.gcode.3mf</strong>, tweak settings, build a looped output.</p>
+
+    <h2>1) Upload</h2>
+    <input id="file" type="file" accept=".3mf" />
+    <div id="fileInfo" class="muted" style="margin-top:.4rem"></div>
+
+    <h2>Plate</h2>
+    <div class="row">
+      <div>
+        <label for="plateIndex" title="Which plate_X.gcode to replace">Plate index (for .3mf)</label>
+        <input id="plateIndex" type="number" min="1" value="1" />
+      </div>
+    </div>
+
+    <h2>2) Loop Settings</h2>
+    <div class="row">
+      <div>
+        <label for="loops" title="Repeat count">Number of loops (?)</label>
+        <input id="loops" type="number" min="1" value="5" />
+      </div>
+      <div>
+        <label for="zoffset" title="Extra Z lift before sweeps">Z micro-offset (mm) (?)</label>
+        <input id="zoffset" type="number" step="0.01" value="0" />
+      </div>
+      <div>
+        <label for="sweepsSlow" title="Gentle slow passes">Slow sweeps (#) (?)</label>
+        <input id="sweepsSlow" type="number" min="0" value="2" />
+      </div>
+      <div>
+        <label for="sweepsFast" title="Aggressive fast passes">Fast sweeps (#) (?)</label>
+        <input id="sweepsFast" type="number" min="0" value="3" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="sweepFeedSlow" title="Slow pass speed (mm/min)">Slow sweep feed (mm/min) (?)</label>
+        <input id="sweepFeedSlow" type="number" min="1" value="3000" />
+      </div>
+      <div>
+        <label for="sweepFeedFast" title="Fast pass speed (mm/min)">Fast sweep feed (mm/min) (?)</label>
+        <input id="sweepFeedFast" type="number" min="1" value="12000" />
+      </div>
+      <div>
+        <label for="sweepStep" title="X step between rakes">Sweep step X (mm) (?)</label>
+        <input id="sweepStep" type="number" min="1" value="30" />
+      </div>
+      <div>
+        <label for="sweepXmin" title="Left-most X to cover in sweeps">Sweep X min (mm) (?)</label>
+        <input id="sweepXmin" type="number" min="0" value="0" />
+      </div>
+      <div>
+        <label for="sweepXmax" title="Right-most X to cover in sweeps">Sweep X max (mm) (?)</label>
+        <input id="sweepXmax" type="number" min="50" value="220" />
+      </div>
+      <div>
+        <label for="sweepYmax" title="Max Y for sweeps">Sweep Y max (mm) (?)</label>
+        <input id="sweepYmax" type="number" min="100" value="250" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label title="Use M190 R temp wait or G4 dwell">Cool-down mode (?)</label>
+        <div>
+          <label><input type="radio" name="cool" value="temp" checked> Temp based (M190 R)</label><br>
+          <label><input type="radio" name="cool" value="time"> Time based (G4 dwell)</label>
+        </div>
+      </div>
+      <div id="tempBox">
+        <label for="coolTemp" title="Bed temperature to wait for">Target bed temp (°C) (?)</label>
+        <input id="coolTemp" type="number" min="0" value="25" />
+      </div>
+      <div id="timeBox" style="display:none">
+        <label for="coolSec" title="Seconds to wait">Cool-down time (s) (?)</label>
+        <input id="coolSec" type="number" min="0" value="3600" />
+      </div>
+      <div>
+        <label for="holdBed" title="Maintain bed temp during prints; 0 = slicer value">Maintain bed temp (°C) (?)</label>
+        <input id="holdBed" type="number" min="0" value="0" />
+      </div>
+    </div>
+
+    <h2>Bending Motion</h2>
+    <div class="row">
+      <div>
+        <label for="bendTop" title="Top Z (bed down)">Bend top Z (mm) (?)</label>
+        <input id="bendTop" type="number" min="0" value="235" />
+      </div>
+      <div>
+        <label for="bendBottom" title="Bottom Z (bed up)">Bend bottom Z (mm) (?)</label>
+        <input id="bendBottom" type="number" min="0" value="200" />
+      </div>
+      <div>
+        <label for="bendCycles" title="Up/down pairs">Bend cycles (#) (?)</label>
+        <input id="bendCycles" type="number" min="0" value="6" />
+      </div>
+      <div>
+        <label for="bendFeed" title="Bed move speed during bend">Bend feed (mm/min) (?)</label>
+        <input id="bendFeed" type="number" min="1" value="12000" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label title="Fan on during sweeps helps release parts"><input id="fanOn" type="checkbox" checked> Fan on during sweeps (?)</label>
+      </div>
+      <div>
+        <label title="Re-home X/Y between loops"><input id="homeBetween" type="checkbox"> Home XY between loops (?)</label>
+      </div>
+      <div>
+        <label title="Lift Z 5 mm before lateral moves"><input id="safeLift" type="checkbox" checked> Safe Z lift (?)</label>
+      </div>
+    </div>
+
+    <h2>3) Build</h2>
+    <button id="build" class="btn">Generate</button>
+    <button id="download" class="btn secondary" disabled>Download</button>
+    <span id="dlname" class="pill" style="display:none"></span>
+
+    <h2>Preview (first ~120 lines)</h2>
+    <pre id="preview" class="output">—</pre>
+  </div>
+
+  <!-- App entry -->
+</body>
+</html>

@@ -1,0 +1,14 @@
+body{font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin:0; padding:2rem; background:#0b0f14; color:#e6eefb}
+.card{background:#131a22; border:1px solid #22303e; border-radius:16px; padding:1.25rem; margin:auto; max-width:980px}
+h1{font-weight:700; font-size:1.6rem; margin:0 0 1rem}
+h2{font-weight:650; font-size:1.1rem; margin:1.2rem 0 .6rem}
+label{display:block; margin:.3rem 0 .2rem; color:#bcd1ea; font-size:.85rem}
+input, select{width:50%; padding:.35rem .45rem; border-radius:8px; border:1px solid #2a3d52; background:#0e141b; color:#e6eefb; font-size:.85rem}
+input[type="checkbox"], input[type="radio"]{width:auto}
+.row{display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:10px; margin-bottom:.6rem}
+.btn{display:inline-block; background:#3b82f6; color:white; border:none; padding:.55rem .9rem; border-radius:10px; cursor:pointer; font-weight:650; font-size:.9rem}
+.btn.secondary{background:#22303e}
+.muted{color:#8ea6c6; font-size:.85rem}
+.output{white-space:pre-wrap; background:#0e141b; border:1px dashed #2a3d52; padding:1rem; border-radius:10px; max-height:260px; overflow:auto; font-size:.8rem}
+.pill{display:inline-block; padding:.25rem .6rem; background:#1b2530; border:1px solid #2a3d52; border-radius:999px; font-size:.75rem; margin-right:.35rem}
+a.download{color:#fff; text-decoration:none}

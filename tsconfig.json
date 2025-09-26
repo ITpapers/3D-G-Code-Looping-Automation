@@ -1,0 +1,27 @@
+{
+    "files": [],
+  "references": [{ "path": "./tsconfig.node.json" }],
+  "compilerOptions": {
+    "target": "ES2021",
+    "useDefineForClassFields": true,
+    "lib": ["ES2021", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+
+    "baseUrl": "src",
+    "paths": {
+      "@core/*": ["core/*"],
+      "@ui/*":   ["ui/*"],
+      "@util/*": ["util/*"],
+      "@queue/*":["queue/*"],
+      "@data/*": ["data/*"],
+      "@platform/*": ["platform/*"]
+    }
+  },
+  "include": ["src", "public"]
+}
