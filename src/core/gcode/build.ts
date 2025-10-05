@@ -201,197 +201,7 @@ export function stripPurgeFromStart(gcode: string): { text: string } {
 
 
 
-/** Build a full-bed raster across Xmin..Xmax at Y=0..Ymax. 
-function rasterAcrossX(
-  xMin: number,
-  xMax: number,
-  yMax: number,
-  feed: number,
-  step: number
-): string[] {
-  const cmds: string[] = [];
-  const xmin = Math.max(0, Math.min(xMin, xMax));
-  const xmax = Math.max(xMin, xMax);
-  const s = Math.max(1, step);
 
-  // initial span
-  cmds.push(`G1 Y${yMax} F${feed}`);
-  cmds.push(`G1 X${xmax} F${feed}`);
-  cmds.push(`G1 Y0 F${feed}`);
-
-  // rake back towards xmin
-  for (let x = xmax - s; x >= xmin; x -= s) {
-    cmds.push(`G1 Y${yMax} F${feed}`);
-    cmds.push(`G1 X${x} F${feed}`);
-    cmds.push(`G1 Y0 F${feed}`);
-  }
-  return cmds;
-}
-
-export function buildDetachBlock(opts: {
-  zoffset: number;
-  sweepsSlow: number;
-  sweepsFast: number;
-  sweepFeedSlow: number;
-  sweepFeedFast: number;
-  sweepStep: number;
-  sweepYmax: number;
-  sweepXmin: number;
-  sweepXmax: number;
-  fanOn: boolean;
-  homeBetween: boolean;
-  safeLift: boolean;
-  coolMode: "temp" | "time";
-  coolTemp: number;
-  coolSec: number;
-  bendTop: number;
-  bendBottom: number;
-  bendCycles: number;
-  bendFeed: number;
-}): string {
-  const {
-    zoffset,
-    sweepsSlow,
-    sweepsFast,
-    sweepFeedSlow,
-    sweepFeedFast,
-    sweepStep,
-    sweepYmax,
-    sweepXmin,
-    sweepXmax,
-    fanOn,
-    homeBetween,
-    safeLift,
-    coolMode,
-    coolTemp,
-    coolSec,
-    bendTop,
-    bendBottom,
-    bendCycles,
-    bendFeed,
-  } = opts;
-
-  const out: string[] = [];
-  out.push("; ---- LOOP DETACH / COOLDOWN BLOCK BEGIN ----");
-  out.push("M400");
-  if (safeLift) {
-    out.push("G91");
-    out.push("G1 Z5 F2400");
-    out.push("G90");
-  }
-  if (homeBetween) out.push("G28 X Y");
-  if (coolMode === "temp") out.push(`M190 R${Math.max(0, Math.round(coolTemp))}`);
-  else out.push(`G4 S${Math.max(0, Math.round(coolSec))}`);
-
-  // Bending motion
-  out.push(";============================  BENDING MOTION  ============================");
-  const top = Math.max(0, bendTop);
-  const bottom = Math.max(0, bendBottom);
-  const feed = Math.max(600, bendFeed);
-  for (let i = 0; i < Math.max(0, bendCycles); i++) {
-    out.push(`G1 Z${top} F${feed}`);
-    out.push(`G1 Z${bottom} F${feed}`);
-  }
-
-  // Sweeps
-  out.push(";============================= PUSH / SWEEP SECTION =======================");
-  if (zoffset) {
-    out.push("G91");
-    out.push(`G1 Z${zoffset.toFixed(2)} F2400`);
-    out.push("G90");
-  }
-  if (fanOn) out.push("M106 S255");
-
-  const yMax = Math.max(100, sweepYmax);
-  const xMin = Math.max(0, sweepXmin);
-  const xMax = Math.max(xMin + 10, sweepXmax); // ensure sane order
-  const step = Math.max(1, sweepStep);
-
-  if (sweepsSlow > 0) {
-    const f = Math.max(100, sweepFeedSlow);
-    out.push(`; full-bed rakes (${sweepsSlow}×, slow)`);
-    for (let i = 0; i < sweepsSlow; i++) out.push(...rasterAcrossX(xMin, xMax, yMax, f, step));
-  }
-
-  if (sweepsFast > 0) {
-    const f = Math.max(100, sweepFeedFast);
-    out.push(`; full-bed rakes (${sweepsFast}×, fast)`);
-    for (let i = 0; i < sweepsFast; i++) out.push(...rasterAcrossX(xMin, xMax, yMax, f, step));
-  }
-
-  out.push("M107");
-  out.push("M400");
-  out.push("; ---- LOOP DETACH / COOLDOWN BLOCK END ----");
-  return out.join("\n");
-}*/
-
-/** Build the repeated print using parsed head/piece/tail and validated settings. 
-export function buildLoopedGcode(
-  parsed: { head: string; piece: string; tail: string },
-  settings: {
-    loops: number;
-    detach: {
-      zOffsetMm: number;
-      fanOn: boolean;
-      homeBetween: boolean;
-      safeLift: boolean;
-      coolMode: "temp" | "time";
-      coolTempC: number;
-      coolSeconds: number;
-      sweepsSlow: number;
-      sweepsFast: number;
-      sweepFeedSlow: number;
-      sweepFeedFast: number;
-      sweepStepX: number;
-      sweepYmax: number;
-      sweepXmin: number;
-      sweepXmax: number;
-      bendTopZ: number;
-      bendBottomZ: number;
-      bendCycles: number;
-      bendFeed: number;
-    };
-  }
-): string {
-  // Always purge-strip the printable segment for ALL loops
-  const purge = stripPurgeBlocks(parsed.piece);
-  const cleanedPiece = purge.text;
-
-  const out: string[] = [parsed.head];
-  for (let i = 0; i < settings.loops; i++) {
-    out.push(`\n; ===== LOOP ${i + 1} / ${settings.loops} — START =====`);
-    out.push(cleanedPiece);
-    if (i < settings.loops - 1) {
-      out.push(
-        buildDetachBlock({
-          zoffset: settings.detach.zOffsetMm,
-          sweepsSlow: settings.detach.sweepsSlow,
-          sweepsFast: settings.detach.sweepsFast,
-          sweepFeedSlow: settings.detach.sweepFeedSlow,
-          sweepFeedFast: settings.detach.sweepFeedFast,
-          sweepStep: settings.detach.sweepStepX,
-          sweepYmax: settings.detach.sweepYmax,
-          sweepXmin: settings.detach.sweepXmin,
-          sweepXmax: settings.detach.sweepXmax,
-          fanOn: settings.detach.fanOn,
-          homeBetween: settings.detach.homeBetween,
-          safeLift: settings.detach.safeLift,
-          coolMode: settings.detach.coolMode,
-          coolTemp: settings.detach.coolTempC,
-          coolSec: settings.detach.coolSeconds,
-          bendTop: settings.detach.bendTopZ,
-          bendBottom: settings.detach.bendBottomZ,
-          bendCycles: settings.detach.bendCycles,
-          bendFeed: settings.detach.bendFeed,
-        })
-      );
-      out.push("; prepare for next loop");
-    }
-    out.push(`; ===== LOOP ${i + 1} / ${settings.loops} — END =====\n`);
-  }
-  out.push(parsed.tail || "\n;END gcode (from original file)");
-  return out.join("\n");
-}*/
 
 // Case-insensitive, whitespace-tolerant markers
 const RX_EXEC_START   = /^\s*;\s*EXECUTABLE_BLOCK_START\b/i;
@@ -494,6 +304,33 @@ export function applyDetachCooling(
   return out.join(eol);
 }
 
+// Return the cooling lines (temp- or time-based) without trying to place them.
+// This is the same logic as applyDetachCooling(), just returns the lines.
+export function coolingLinesFromDetach(detach: { coolMode: "temp" | "time"; coolTempC?: number; coolSeconds?: number }): string[] {
+  const out: string[] = [];
+  const mode = detach?.coolMode === "time" ? "time" : "temp";
+
+  if (mode === "temp") {
+    const t = Math.max(0, Math.floor(detach?.coolTempC ?? 30));
+    out.push(
+      `; --- cooling: wait until bed <= ${t}C ---`,
+      `M190 R${t}`,
+      `; --- end cooling ---`,
+    );
+  } else {
+    const s = Math.max(0, Math.floor(detach?.coolSeconds ?? 0));
+    if (s > 0) {
+      out.push(
+        `; --- cooling: dwell ${s}s ---`,
+        `G4 S${s}`,
+        `; --- end cooling ---`,
+      );
+    }
+  }
+  return out;
+}
+
+
 export function buildLoopedGcode(
   original: string,
   loops: number,
@@ -516,6 +353,14 @@ export function buildLoopedGcode(
     bendBottomZ?: number;
     bendCycles?: number;
     bendFeed?: number;
+
+    
+    // add these three:
+    coolMode: "temp" | "time";
+    coolTempC?: number;
+    coolSeconds?: number;
+
+    sweepZ?: number;
   }
 ): string {
   const { head, header, config, body, eol } = splitBambuGcodeByBlocks(original);
@@ -527,6 +372,13 @@ export function buildLoopedGcode(
 
   for (let i = 0; i < times; i++) {
     out.push(...body);
+
+    
+  // Insert the wait/cooldown right after the print body,
+  // so the dwell happens BEFORE detach/bend/sweep.
+  out.push(...coolingLinesFromDetach(detach));
+
+
     // insert detach after each body (including after the final loop)
     out.push(...detachBlock);
     if (detach?.homeBetween) out.push("; --- home XY ---", "G28 X Y");
@@ -556,43 +408,74 @@ function buildDetachSequence(detach: any): string[] {
     bendBottomZ = 200,
     bendCycles = 6,
     bendFeed = 12000,
+
+     sweepZ: sweepZParam = 2,
+
   } = detach || {};
 
-  const XMIN = Math.max(0, Math.min(sweepXmin, sweepXmax));
-  const XMAX = Math.max(0, Math.max(sweepXmin, sweepXmax));
+  const XMIN = Math.max(30, Math.min(sweepXmin, sweepXmax));
+  const XMAX = Math.max(30, Math.max(sweepXmin, sweepXmax));
   const STEP = Math.max(1, Math.floor(sweepStepX));
-  const YFRONT = 5;
+  const YFRONT = 0;             // was 5 — start exactly at the front edge
   const YMAX = Math.max(YFRONT + 10, sweepYmax);
+  const Z_MAX = 235; // adjust if needed for your machine
+const micro     = Number(zOffsetMm) || 0;           // +1 lowers plate (increases Z) by 1 mm
+const baseSweep = Number(sweepZParam) || 2;
+const effSweepZ = Math.max(0, Math.min(Z_MAX, baseSweep + micro));
+
 
   const liftRel = (dz: number) => ["G91", `G0 Z${toFixed(dz)} F6000`, "G90"];
   const setFan = (on: boolean) => (on ? ["M106 S255"] : ["M106 S0"]);
-  const travelF = 48000;
+  const travelF = 12000;
 
   lines.push("; === DETACH_SEQUENCE_START ===");
 
   if (safeLift) lines.push(...liftRel(5));
-  if (zOffsetMm && Math.abs(zOffsetMm) > 0) lines.push("; micro Z offset", ...liftRel(zOffsetMm));
+  //if (zOffsetMm && Math.abs(zOffsetMm) > 0) lines.push("; micro Z offset", ...liftRel(zOffsetMm));
 
   lines.push(`; --- bend plate ${bendCycles}x between Z${toFixed(bendBottomZ)} and Z${toFixed(bendTopZ)} ---`, "G90");
   for (let c = 0; c < Math.max(0, bendCycles); c++) {
     lines.push(`G1 Z${toFixed(bendBottomZ)} F${Math.max(100, Math.floor(bendFeed))}`);
     lines.push(`G1 Z${toFixed(bendTopZ)} F${Math.max(100, Math.floor(bendFeed))}`);
   }
-  const midZ = (Number(bendTopZ) + Number(bendBottomZ)) / 2;
-  lines.push(`G1 Z${toFixed(midZ)} F${Math.max(100, Math.floor(bendFeed))}`);
+  // const midZ = (Number(bendTopZ) + Number(bendBottomZ)) / 2;
+  // lines.push(`G1 Z${toFixed(midZ)} F${Math.max(100, Math.floor(bendFeed))}`);
 
-  lines.push("; --- sweeps ---", ...setFan(!!fanOn));
+  // lines.push("; --- sweeps ---", ...setFan(!!fanOn));
 
-  const cols: number[] = [];
-  for (let x = XMIN; x <= XMAX; x += STEP) cols.push(x);
+// Raise to a deliberate sweep height close to the head
+lines.push(`; sweepZ=${toFixed(baseSweep)} zOffsetMm=${toFixed(micro)} effSweepZ=${toFixed(effSweepZ)}`);
+lines.push("M400");
+lines.push("G90");
+lines.push(`G1 Z${toFixed(effSweepZ)} F10000`);
 
-  const sweepOnce = (feed: number) => {
-    for (const x of cols) {
-      lines.push(`G0 X${toFixed(x)} Y${toFixed(YFRONT)} F${travelF}`);
-      lines.push(`G1 Y${toFixed(YMAX)} F${Math.max(100, Math.floor(feed))}`);
-      lines.push(`G0 Y${toFixed(YFRONT)} F${travelF}`);
-    }
-  };
+lines.push("; --- sweeps ---", ...setFan(!!fanOn));
+
+  // Build X columns and FORCE inclusion of XMAX as the last column
+const cols: number[] = [];
+for (let x = XMIN; x <= XMAX - 0.001; x += STEP) cols.push(Number(toFixed(Math.min(x, XMAX), 3)));
+if (cols.length === 0 || cols[cols.length - 1] < XMAX - 0.001) cols.push(Number(toFixed(XMAX, 3)));
+
+const initialStrokeF = Math.max(100, Math.floor(sweepFeedSlow)); // first push uses the slow feed
+
+// Align at BACK-MIDDLE, do an initial push (back→front→back), then raster
+const XMID = (XMIN + XMAX) / 2;
+lines.push(`G1 X${toFixed(XMID)} Y${toFixed(YMAX)} F${travelF}`);
+lines.push(`G1 Y${toFixed(YFRONT)} F${initialStrokeF}`);
+lines.push(`G1 Y${toFixed(YMAX)} F${initialStrokeF}`);
+
+// One sweep pass across columns: move X at the BACK, stroke FWD/BWD slowly
+const sweepOnce = (feed: number) => {
+  const strokeF = Math.max(100, Math.floor(feed));
+  for (const x of cols) {
+    // move to the next column AT THE BACK
+    lines.push(`G1 X${toFixed(x)} Y${toFixed(YMAX)} F${travelF}`);
+    // forward stroke
+    lines.push(`G1 Y${toFixed(YFRONT)} F${strokeF}`);
+    // backward stroke
+    lines.push(`G1 Y${toFixed(YMAX)} F${strokeF}`);
+  }
+};
 
   if (sweepsSlow > 0) {
     lines.push(`; slow sweeps x${sweepsSlow} @ F${sweepFeedSlow}`);

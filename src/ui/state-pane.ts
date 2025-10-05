@@ -1,6 +1,6 @@
 // src/ui/state-pane.ts
 import { settingsSchema } from "@core/schema";
-import { buildLoopedGcode, applyDetachCooling, maybeAdjustBedHold, stripPurgeFromStart, stripNozzleLoadLine } from "@core/gcode/build";
+import { buildLoopedGcode, maybeAdjustBedHold, stripPurgeFromStart, stripNozzleLoadLine } from "@core/gcode/build";
 import { mergeGcodePreservingCompression } from "@core/threeMF/merge";
 import { extractFirstGcode, listEntries } from "@core/threeMF/zip-read";
 import { u8ToBlob } from "@util/blob";
@@ -96,8 +96,6 @@ export async function buildAndPrepareDownload(settings: ReturnType<typeof curren
   working = cut.text;
   // (optional) you can log cut.removedCount if you want telemetry
 
-  // (B3) Apply cooling injection (temp/time) right after CONFIG
-  working = applyDetachCooling(working, settings.detach);
 
   // (C) Build looped body with single header+config
   const newPlateText =  buildLoopedGcode(working, settings.loops, settings.detach);
