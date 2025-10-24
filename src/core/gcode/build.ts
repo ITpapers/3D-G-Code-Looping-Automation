@@ -15,136 +15,7 @@ export function maybeAdjustBedHold(raw: string, holdC?: number): string {
   });
 }
 
-/**
- * Remove Bambu purge/prime/wipe blocks from the start of a print segment.
- * Targets (in priority order):
- *  1) All `; FLUSH_START` … `; FLUSH_END` sections (there can be several).
- *  2) The post-flush "wipe/shake" sequence (e.g. X70/X80 oscillation, comments like
- *     "shake to put down garbage", "wipe and shake", "move Y to aside, prevent collision").
- *  3) Fallback: pre-LAYER horizontal "line purge" (narrow Y band, mostly extruding).
- *
- * Returns { text, debug } for optional preview logging.
- 
-export function stripPurgeBlocks(gcodePiece: string): { text: string; debug: string } {
-  const lines = gcodePiece.split("\n");
-  const debugParts: string[] = [];
 
-  const isLayerStart = (s: string) =>
-    /^;\s*LAYER:\d+/i.test(s) ||
-    /^;\s*type:\s*(skirt|brim|wall|perimeter|infill)/i.test(s) ||
-    /^;\s*(layer|skirt|brim|wall|perimeter|infill)\b/i.test(s);
-
-  const removeRange = (a: number, b: number, tag: string) => {
-    const removed = lines.slice(a, b);
-    lines.splice(a, b - a);
-    debugParts.push(`${tag} [${a}..${b - 1}] (${removed.length} lines)`);
-  };
-
-  const SCAN_LIMIT = Math.min(lines.length, 2000);
-
-  // 1) Remove ALL FLUSH blocks found early
-  for (let i = 0; i < SCAN_LIMIT; ) {
-    if (/^;\s*FLUSH_START\b/i.test(lines[i])) {
-      let j = i + 1;
-      while (j < lines.length && !/^;\s*FLUSH_END\b/i.test(lines[j])) j++;
-      if (j < lines.length) {
-        removeRange(i, j + 1, "FLUSH block removed");
-        continue;
-      } else {
-        break; // no closing marker → bail
-      }
-    }
-    i++;
-  }
-
-  // 2) Remove wipe/shake block if present
-  const wipeHintIdx = lines.findIndex(
-    (s, k) =>
-      k < SCAN_LIMIT &&
-      (/shake to put down garbage/i.test(s) ||
-        /wipe and shake/i.test(s) ||
-        /move Y to aside, prevent collision/i.test(s))
-  );
-  if (wipeHintIdx >= 0) {
-    let start = Math.max(0, wipeHintIdx - 25);
-    let end = wipeHintIdx + 1;
-    const STOP = (s: string) =>
-      isLayerStart(s) ||
-      /^M20[49]\b|^M62[19]\b/i.test(s) || // M204 accel, M621/629 tool/AMS
-      /^;\s*(HEADER_BLOCK|CONFIG_BLOCK|END gcode)/i.test(s);
-
-    while (end < Math.min(lines.length, wipeHintIdx + 80)) {
-      const s = lines[end];
-      if (STOP(s)) break;
-      if (/^[GM]\d+/.test(s) && !/^G0\b|^G1\b|^M10[679]\b/i.test(s)) break; // allow G0/G1 and M106/M107
-      end++;
-    }
-    if (end > start) removeRange(start, end, "wipe/shake block removed");
-  }
-
-  // 3) Fallback heuristic: line purge before first layer
-  let firstLayer = lines.findIndex((s, k) => k < SCAN_LIMIT && isLayerStart(s));
-  if (firstLayer < 0) firstLayer = Math.min(lines.length, 800);
-
-  let y0: number | null = null;
-  let yBand = 0;
-  let ePrev = 0;
-  let extrudeCount = 0;
-  let moveCount = 0;
-  let fallStart = -1;
-  let fallEnd = -1;
-
-  const parseY = (s: string): number | null => {
-    const m = /\bY(-?\d+(\.\d+)?)/i.exec(s);
-    return m ? Number(m[1]) : null;
-  };
-  const parseE = (s: string): number | null => {
-    const m = /\bE(-?\d+(\.\d+)?)/i.exec(s);
-    return m ? Number(m[1]) : null;
-  };
-
-  for (let i = 0; i < firstLayer; i++) {
-    const s = lines[i];
-    if (/^G1\b/i.test(s)) {
-      moveCount++;
-      const y = parseY(s);
-      const e = parseE(s);
-      if (y !== null) {
-        if (y0 === null) y0 = y;
-        yBand = Math.max(yBand, Math.abs(y - y0));
-      }
-      if (e !== null) {
-        if (e > ePrev + 0.0001) extrudeCount++;
-        ePrev = e;
-      }
-      if (moveCount >= 25 && extrudeCount / moveCount > 0.6 && yBand < 8) {
-        if (fallStart < 0) fallStart = 0;
-        fallEnd = i + 1;
-      }
-    } else if (/^G0\b/i.test(s)) {
-      moveCount++;
-      const y = parseY(s);
-      if (y !== null) {
-        if (y0 === null) y0 = y;
-        yBand = Math.max(yBand, Math.abs(y - y0));
-      }
-    } else if (/^;\s/.test(s)) {
-      // ignore comments
-    } else {
-      if (fallEnd > 0) break;
-    }
-  }
-
-  if (fallStart >= 0 && fallEnd > fallStart) {
-    removeRange(fallStart, fallEnd, `heuristic line purge removed (Yband≈${yBand.toFixed(2)})`);
-  }
-
-  const result = lines.join("\n");
-  const debug =
-    debugParts.length ? "Purge cleanup:\n; " + debugParts.join("\n; ") : "No purge block detected.";
-  return { text: result, debug };
-}
-*/
 
 
 /**
@@ -337,6 +208,7 @@ export function buildLoopedGcode(
   detach: {
     zOffsetMm?: number;
     fanOn?: boolean;
+    auxOn?: boolean;
     homeBetween?: boolean;
     safeLift?: boolean;
 
@@ -373,6 +245,9 @@ export function buildLoopedGcode(
   for (let i = 0; i < times; i++) {
     out.push(...body);
 
+    if (detach?.fanOn) out.push("M106 S255");
+    if (detach?.auxOn) out.push("M106 P2 S255");
+
     
   // Insert the wait/cooldown right after the print body,
   // so the dwell happens BEFORE detach/bend/sweep.
@@ -393,6 +268,8 @@ function buildDetachSequence(detach: any): string[] {
   const {
     zOffsetMm = 0,
     fanOn = true,
+    auxOn = true,
+    homeBetween = false,
     safeLift = true,
 
     sweepsSlow = 0,
@@ -425,23 +302,29 @@ const effSweepZ = Math.max(0, Math.min(Z_MAX, baseSweep + micro));
 
 
   const liftRel = (dz: number) => ["G91", `G0 Z${toFixed(dz)} F6000`, "G90"];
-  const setFan = (on: boolean) => (on ? ["M106 S255"] : ["M106 S0"]);
+  const setFan = (on: boolean, aux: boolean) => {
+    const cmds: string[] = [];
+    // part-cooling blower
+    cmds.push(on ? "M106 S255" : "M106 S0");
+    // AUX: only turn ON if aux==true, but ALWAYS turn OFF when on==false
+    if (on && aux) cmds.push("M106 P2 S255");
+      if (!on)       cmds.push("M106 P2 S0");
+    return cmds;
+  };
   const travelF = 12000;
 
   lines.push("; === DETACH_SEQUENCE_START ===");
 
   if (safeLift) lines.push(...liftRel(5));
-  //if (zOffsetMm && Math.abs(zOffsetMm) > 0) lines.push("; micro Z offset", ...liftRel(zOffsetMm));
+  // turn fans on for cooling + sweeps
+  lines.push(...setFan(!!fanOn, !!auxOn));
 
   lines.push(`; --- bend plate ${bendCycles}x between Z${toFixed(bendBottomZ)} and Z${toFixed(bendTopZ)} ---`, "G90");
   for (let c = 0; c < Math.max(0, bendCycles); c++) {
     lines.push(`G1 Z${toFixed(bendBottomZ)} F${Math.max(100, Math.floor(bendFeed))}`);
     lines.push(`G1 Z${toFixed(bendTopZ)} F${Math.max(100, Math.floor(bendFeed))}`);
   }
-  // const midZ = (Number(bendTopZ) + Number(bendBottomZ)) / 2;
-  // lines.push(`G1 Z${toFixed(midZ)} F${Math.max(100, Math.floor(bendFeed))}`);
 
-  // lines.push("; --- sweeps ---", ...setFan(!!fanOn));
 
 // Raise to a deliberate sweep height close to the head
 lines.push(`; sweepZ=${toFixed(baseSweep)} zOffsetMm=${toFixed(micro)} effSweepZ=${toFixed(effSweepZ)}`);
@@ -449,7 +332,7 @@ lines.push("M400");
 lines.push("G90");
 lines.push(`G1 Z${toFixed(effSweepZ)} F10000`);
 
-lines.push("; --- sweeps ---", ...setFan(!!fanOn));
+
 
   // Build X columns and FORCE inclusion of XMAX as the last column
 const cols: number[] = [];
@@ -486,7 +369,7 @@ const sweepOnce = (feed: number) => {
     for (let i = 0; i < sweepsFast; i++) sweepOnce(sweepFeedFast);
   }
 
-  if (fanOn) lines.push("M106 S0");
+  lines.push(...setFan(false, !!auxOn));
   if (safeLift) lines.push(...liftRel(5));
   lines.push("; === DETACH_SEQUENCE_END ===");
 

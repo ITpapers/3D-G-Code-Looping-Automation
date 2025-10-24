@@ -9,6 +9,7 @@ export const settingsSchema = z.object({
   detach: z.object({
     zOffsetMm: z.number().min(0),
     fanOn: z.boolean(),
+    auxOn: z.boolean(),
     homeBetween: z.boolean(),
     safeLift: z.boolean(),
 

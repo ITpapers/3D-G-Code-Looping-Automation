@@ -50,6 +50,7 @@ export function currentSettings() {
     detach: {
       zOffsetMm: num("zoffset", 0),
       fanOn: bool("fanOn"),
+      auxOn: bool("auxOn"),
       homeBetween: bool("homeBetween"),
       safeLift: bool("safeLift"),
 
